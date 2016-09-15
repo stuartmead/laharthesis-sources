@@ -1,2 +1,3 @@
-# laharthesis-sources
-Source code for lahar thesis
+# Quantifying lahar hazard and vulnerability
+## Supplementary source code
+Lorem ipsum
