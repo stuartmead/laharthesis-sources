@@ -1,0 +1,15 @@
+[submodule "Chapter 4 - Probabilistic lahar hazard modelling/titan2d"]
+	path = Chapter 4 - Probabilistic lahar hazard modelling/titan2d
+	url = https://github.com/stuartmead/titan2d
+[submodule "Chapter 5 - Modelling environmental flows/pointcloudplugin"]
+	path = Chapter 5 - Modelling environmental flows/pointcloudplugin
+	url = https://github.com/stuartmead/pointcloudplugin
+[submodule "Chapter 5 - Modelling environmental flows/structurefrommotion"]
+	path = Chapter 5 - Modelling environmental flows/structurefrommotion
+	url = https://github.com/stuartmead/structurefrommotion
+[submodule "Misc_parts/CloudBoard"]
+	path = Misc_parts/CloudBoard
+	url = https://github.com/stuartmead/CloudBoard
+[submodule "Misc_parts/MayaPlyImport"]
+	path = Misc_parts/MayaPlyImport
+	url = https://github.com/stuartmead/MayaPlyImport
