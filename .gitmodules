@@ -13,3 +13,6 @@
 [submodule "Misc_parts/MayaPlyImport"]
 	path = Misc_parts/MayaPlyImport
 	url = https://github.com/stuartmead/MayaPlyImport
+[submodule "Chapter 3 - Rain-triggered lahar susceptibility/volcanoplugin"]
+	path = Chapter 3 - Rain-triggered lahar susceptibility/volcanoplugin
+	url = https://github.com/stuartmead/volcanoplugin
