@@ -1,0 +1,268 @@
+\documentclass[11pt,a4paper]{article}
+\title{Fragility functions for buildings}
+\author{Stuart Mead}
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+
+\maketitle
+
+\section{Failure model}
+
+The building stock within Arequipa is characterised mainly by masonry structures of varying quality, with some reinforced concrete structures (Thouret et al. 2014). Therefore, we develop fragility models that are primarily focused on masonry buildings. The failure model is based off Custer et al. (2015) and Roos (2003). The ultimate moment ($M_u$) and shear forces ($V_u$) are calculated using the following equations.
+\begin{equation}
+M_u = \frac{f_t + \sigma_N}{6}wb^2
+\end{equation}
+\begin{equation}
+V_u = f_vwb^2
+\end{equation}
+
+
+Where $f_t$ is the tensile strength of the masonry wall. Using AS3700-2011 as a guide, we set the tensile strength to be no greater than 0.2 \emph{MPa}. The characteristic compressive strength, $f_c$, is calculated from the unconfied compressive strength of the construction material taken from Martelli (2013) (table 4.5, p. 197), again using AS3700-2011 (table 3.1) we presume the mortar is of relatively low quality (M2), containing a large proportion of sand by volume from field observations. The characteristic compressive strength of ignimbrite masonry is approximately 3.8 \emph{MPa} and of red brick (terra-cotta) between 4.54 and 3.5 \emph{MPa}. The wall thickness $b$ is between 150 - 250 \emph{mm} (Martelli 2013) for terra-cotta buildings, and appears to be similar for ignimbrite buildings.
+
+<<echo = true>>=
+rm(list=ls())
+#Constants
+ft = 0.2e6 #Tensile strength in pascals
+fc_i =  3.8e6 #ignimbrite compressive strength
+fc_b = c(3.5e6, 4.54e6) #Terracotta compressive strength
+b = c(0.15, 0.25) #Wall width
+@
+
+
+The normal compressive stress $\sigma_N$ is determined by calculating the normal forces (i.e. bulding weight) acting on the masonry walls. This can be estimated or calculated from building properties such as number and weight of floors, weight of masonry and, floor and roof design (e.g. Roos 2003). However, such detailed building data is lacking and carries considerable uncertainty for an area such as Arequipa. We use the design compressive capacity, specified in AS3700-2011:
+
+\begin{equation}
+F_o = \phi f_c A_b
+\end{equation}
+
+
+Where $\phi$ is the capacity reduction factor, taken as 0.6 given the loading scenario expected in lahars and $A_b$ is the bedded area of the masonry, which is the wall thickness multiplied by the mortar thickness. Mortar thickness, when used, is estimated to be between 10 and 20 mm for buildings within Arequipa.
+
+<<echo = true>>=
+#Constants
+phi <- 0.6 #Capacity reduction factor, AS3007-2011 table 4.1
+a_b <- c(1.0, 1.0)#Deal with length on a by m basis (was c(0.01, 0.02) )
+calcFo <- function(b, phi, fc, a_b)
+{
+  return (phi*(a_b*b)*fc)
+}
+@
+
+Different building classes and build quality is taken into account by determining a reduction factor, $k$, based on the reduction factor in AS3007. The reduction factor is calculated as
+\begin{equation}
+k = 0.67-0.02(S_rs - 14)
+\end{equation}
+for buldings with a reinforced concrete roof or floor slabs (i.e. Typology 3-6C) and
+\begin{equation}
+k = 0.67-0.025(S_rs - 10)
+\end{equation}
+for buildings with other roof or floor supports. This factor requires a simple calculation of slenderness ratio
+\begin{equation}
+S_rs = \frac{a_v H}{k_t b}
+\end{equation}
+
+Where $H$ is the height between supports, taken as 2.8 metres for RC type buildings and 3 metres for non RC buildings, according to Martelli (2014). The vertical slenderness coefficient, $a_v$, is determined from the lateral support along the top edge of the wall. For unsupported walls (i.e. Type 1A-2B), this coefficient is 2.5, for supported walls (type 3-6C) the coefficient is 1. The thickness coefficient, $k_t$ is a coefficient that takes into account the strength of supporting columns. According to guidance in AS3700, it is set at 1 for non-RC framed buildings. For RC buildings (type 4 and 6A-C), it is dependent on the spacing and thickness of reinforced beams within the masonry. Estimates of the spacing and thickness suggests the coefficient will be between 1.4 and 2 for type 6A-6C buildings and between 1 and 1.2 for type 4 buldings. The large spacing between reinforced columns and their relative width, as shown in Thouret et al (2014), are responsible for the much lower coefficient for type 4 buildings. 
+
+<<echo = true>>=
+calcK_rc <- function(S_rs)
+{
+  #return(min(0.67-0.02*(S_rs-14), 0.67))
+  return(0.67-0.02*(S_rs-14))
+}
+calcK_norc <- function(S_rs)
+{
+  #return(min(0.67-0.025*(S_rs-10), 0.67))  
+  return(0.67-0.025*(S_rs-10))  
+}
+#Typologies
+struct_type <- c('1A',
+                 '1B',
+                 '2A',
+                 '2B',
+                 '3',
+                 '4',
+                 '5',
+                 '6A',
+                 '6B',
+                 '6C')
+#Lateral support coefficient
+av_nosupport <- 2.5
+av_support <- 1
+#Height
+H_noRC <- 3000
+H_rc <- 2800
+#Thickness coefficient
+kt_noRC <- 1
+kt_type4 <- c(1, 1.2)
+kt_RC <- c(1.4, 2.0)
+Srs_calc <- function(b, av, H, kt){
+  return((av*H)/(kt*b))
+}
+@
+
+<<echo = true>>=
+library(dplyr)
+
+#Setup strength arrays
+type_Strength <- cbind(struct_type, fc_i, NA)
+type_Strength[3,2:3] <- fc_b #Type 2A terra cotta
+type_Strength[5,2:3] <- fc_b #Type 3-4 terra cotta
+type_Strength[6,2:3] <- fc_b #Type 3-4 terra cotta
+colnames(type_Strength) <- c('type', 'compressiveStrength', 'maxStrength')
+bind_to_df <- function(props, typeStrength)
+  {
+    a <- cbind(typeStrength[,1:2],
+          width = props[1],
+          mortarThickness = props[2], 
+          normalStress = NA,
+          thicknessCoeff = NA,
+          reductionFactor = NA,
+          designStress = NA
+          )
+    return(a)
+}
+
+brickProps <- list()
+brickProps$a <- c(b[1], a_b[1])
+brickProps$b <- c(b[2], a_b[1])
+brickProps$c <- c(b[1], a_b[2])
+brickProps$d <- c(b[2], a_b[2])
+
+#Rotate through width and mortar thickness
+propMat <- do.call("rbind", lapply(brickProps, bind_to_df, typeStrength = type_Strength))
+#Do the maximum strength for terracotta
+propMat <- rbind(propMat,
+                         do.call("rbind", lapply(brickProps, bind_to_df, 
+                                           typeStrength = cbind(
+                                             type = subset(type_Strength, 
+                                                    !is.na(type_Strength[,3]))[,1], 
+                                             compressiveStrength =subset(type_Strength, 
+                                                    !is.na(type_Strength[,3]))[,3]))))
+ultimateMoments <- data.frame(type = propMat[,1],
+                              compressiveStrength = as.numeric(propMat[,2]),
+                              width = as.numeric(propMat[,3]),
+                              mortarThickness = as.numeric(propMat[,4]),
+                              normalStress = as.numeric(propMat[,5]),
+                              thicknessCoeff = as.numeric(propMat[,6]),
+                              reductionFactor = as.numeric(propMat[,7]),
+                              designStress = as.numeric(propMat[,8])
+                              )
+                                           
+ultimateMoments$normalStress = calcFo(b = ultimateMoments$width, 
+                                      phi = phi,
+                                      fc = ultimateMoments$compressiveStrength,
+                                      a_b = ultimateMoments$mortarThickness
+                                      )
+for (i in 1:nrow(ultimateMoments)){
+  #1A-2B
+  if (ultimateMoments$type[i] == '1A' || ultimateMoments$type[i] == '1B' ||
+      ultimateMoments$type[i] == '2A' || ultimateMoments$type[i] == '2B')
+    {
+      ultimateMoments$thicknessCoeff[i] <-
+       Srs_calc(ultimateMoments$width[i]*1000, 
+               av = av_nosupport,
+               H = H_noRC,
+               kt = kt_noRC)
+  }
+  else if (ultimateMoments$type[i] == '3' || ultimateMoments$type[i] == '5')
+  {
+      ultimateMoments$thicknessCoeff[i] <-
+        Srs_calc(ultimateMoments$width[i]*1000, 
+               av = av_support,
+               H = H_noRC,
+               kt = kt_noRC)
+  }
+  else if (ultimateMoments$type[i] == '4')
+  {
+      ultimateMoments$thicknessCoeff[i] <-
+        Srs_calc(ultimateMoments$width[i]*1000, 
+               av = av_support,
+               H = H_rc,
+               kt = kt_type4[1])
+      rowvals <- ultimateMoments[i,]
+      rowvals$thicknessCoeff <- 
+        Srs_calc(ultimateMoments$width[i]*1000, 
+               av = av_support,
+               H = H_rc,
+               kt = kt_type4[2])
+      ultimateMoments <- rbind(ultimateMoments,
+                               rowvals)
+      
+  }
+  else if (ultimateMoments$type[i] == '6A' || ultimateMoments$type[i] == '6B' ||
+           ultimateMoments$type[i] == '6C')
+  {
+      ultimateMoments$thicknessCoeff[i] <-
+        Srs_calc(ultimateMoments$width[i]*1000, 
+               av = av_support,
+               H = H_rc,
+               kt = kt_RC[1])
+      rowvals <- ultimateMoments[i,]
+      rowvals$thicknessCoeff <- 
+        Srs_calc(ultimateMoments$width[i]*1000, 
+               av = av_support,
+               H = H_rc,
+               kt = kt_RC[2])
+      ultimateMoments <- rbind(ultimateMoments,
+                               rowvals)
+      
+  }
+}
+#Reduction factor
+for (i in 1:nrow(ultimateMoments)){
+  #1A-2B
+  if (ultimateMoments$type[i] == '1A' || ultimateMoments$type[i] == '1B' ||
+      ultimateMoments$type[i] == '2A' || ultimateMoments$type[i] == '2B' ||
+      ultimateMoments$type[i] == '5')
+    {
+      ultimateMoments$reductionFactor[i] <-
+        max(calcK_norc(S_rs = ultimateMoments$thicknessCoeff[i]),0.01)
+  }
+  else {
+    ultimateMoments$reductionFactor[i] <-
+      max(calcK_rc(S_rs = ultimateMoments$thicknessCoeff[i]), 0.01)
+  }
+}
+#Design stress
+ultimateMoments$designStress <- ultimateMoments$reductionFactor *
+  ultimateMoments$normalStress
+
+f_v = 0.5*ft + 0.5*ultimateMoments$designStress
+
+ultimateMoments <- cbind(ultimateMoments, f_v)
+
+momUlt <- function(ft, designStress, width, thickness){
+  return((ft + (designStress))*(width*(thickness^2))/6)
+}
+
+shearUlt <- function(fv, width, thickness){
+  return(fv/(width*thickness))
+}
+
+walls = seq(1,15, by = 0.5)
+@
+
+<<echo=false>>=
+ds <- mean(subset(ultimateMoments, ultimateMoments$width < 0.2)$designStress)
+ds_max <- max(subset(ultimateMoments, ultimateMoments$width < 0.2)$designStress)
+ds_min <- min(subset(ultimateMoments, ultimateMoments$width < 0.2)$designStress)
+
+ds2 <- mean(subset(ultimateMoments, ultimateMoments$width > 0.2)$designStress)
+ds2_max <- max(subset(ultimateMoments, ultimateMoments$width > 0.2)$designStress)
+ds2_min <- min(subset(ultimateMoments, ultimateMoments$width > 0.2)$designStress)
+
+@
+
+
+<<echo=false>>=
+dshear <- mean(subset(ultimateMoments, ultimateMoments$width < 0.2)$f_v)
+dshear_max <- max(subset(ultimateMoments, ultimateMoments$width < 0.2)$f_v)
+dshear_min <- min(subset(ultimateMoments, ultimateMoments$width < 0.2)$f_v)
+
+dshear <- mean(subset(ultimateMoments, ultimateMoments$width > 0.2)$f_v)
+dshear_max <- max(subset(ultimateMoments, ultimateMoments$width > 0.2)$f_v)
+dshear_min <- min(subset(ultimateMoments, ultimateMoments$width > 0.2)$f_v)
+@
+
+\end{document}
