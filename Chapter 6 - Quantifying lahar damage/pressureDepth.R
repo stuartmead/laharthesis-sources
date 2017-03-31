@@ -40,15 +40,17 @@ plotVPressure <- function(bType, depthPressure, moments, bricks)
     m_min <- select(filter(moments, class == bType), min15)[1,1]
     m_max <- select(filter(moments, class == bType), max15)[1,1]
     lims <- c(0,1.25)
+    bks <- c(0, 0.5, 1.0)
   } else if (bricks == 0.25) {
     m_mean <- select(filter(moments, class == bType), mean25)[1,1]
     m_min <- select(filter(moments, class == bType), min25)[1,1]
     m_max <- select(filter(moments, class == bType), max25)[1,1]
     lims <- c(0,2.0)
+    bks <- c(0, 0.5, 1.0, 1.5, 2.0)
   }
   plot <- ggplot(depthPressure, aes(pressure*1e-3, depth)) + 
     coord_cartesian(ylim = lims, xlim = c(0,20)) +
-    scale_y_continuous(expand = c(0,0)) +
+    scale_y_continuous(expand = c(0,0), breaks = bks, minor_breaks = c(0.25, 0.75, 1.25)) +
     scale_x_continuous(expand = c(0,0)) +
     geom_contour(data = filter(depthPressure, rho == 1000), 
                  aes(z = max_mom/m_mean),
@@ -114,6 +116,7 @@ plotTypePressure <- function(fRho, depthPressure, moments, bricks)
       select(class, mean = starts_with("mean"), min = starts_with("min"), max = starts_with("max"))
     lims <- c(0,2.0)
   }
+  sze = 0.5
   plot <- ggplot(depthPressure, aes(pressure*1e-3, depth)) + 
     coord_cartesian(ylim = lims, xlim = c(0,20)) +
     scale_y_continuous(expand = c(0,0)) +
@@ -121,33 +124,33 @@ plotTypePressure <- function(fRho, depthPressure, moments, bricks)
     #A0
     geom_contour(data = filter(depthPressure, rho == fRho), 
                  aes(z = max_mom/A0$mean),
-                 breaks = c(1), color = '#cccccc', size = 1, linetype = 1) + 
+                 breaks = c(1), color = '#cccccc', size = sze, linetype = 1) + 
     geom_contour(data = filter(depthPressure, rho == fRho), 
                  aes(z = max_mom/A0$min),
-                 breaks = c(1), color = '#cccccc', size = 1, linetype = 3) +
+                 breaks = c(1), color = '#cccccc', size = sze, linetype = 3) +
     geom_contour(data = filter(depthPressure, rho == fRho), 
                  aes(z = max_mom/A0$max),
-                 breaks = c(1), color = '#cccccc', size = 1, linetype = 2) +
+                 breaks = c(1), color = '#cccccc', size = sze, linetype = 2) +
     #A
     geom_contour(data = filter(depthPressure, rho == fRho),
                  aes(z = max_mom/A$mean),
-                 breaks = c(1), color = '#969696', size = 1, linetype = 1) +
+                 breaks = c(1), color = '#969696', size = sze, linetype = 1) +
     geom_contour(data = filter(depthPressure, rho == fRho), 
                  aes(z = max_mom/A$min),
-                 breaks = c(1), color = '#969696', size = 1, linetype = 3) +
+                 breaks = c(1), color = '#969696', size = sze, linetype = 3) +
     geom_contour(data = filter(depthPressure, rho == fRho), 
                  aes(z = max_mom/A$max),
-                 breaks = c(1), color = '#969696', size = 1, linetype = 2) +
+                 breaks = c(1), color = '#969696', size = sze, linetype = 2) +
     #B
     geom_contour(data = filter(depthPressure, rho == fRho),
                  aes(z = max_mom/B$mean),
-                 breaks = c(1), color = '#525252', size = 1, linetype = 1) +
+                 breaks = c(1), color = '#525252', size = sze, linetype = 1) +
     geom_contour(data = filter(depthPressure, rho == fRho), 
                  aes(z = max_mom/B$min),
-                 breaks = c(1), color = '#525252', size = 1, linetype = 3) +
+                 breaks = c(1), color = '#525252', size = sze, linetype = 3) +
     geom_contour(data = filter(depthPressure, rho == fRho), 
                  aes(z = max_mom/B$max),
-                 breaks = c(1), color = '#525252', size = 1, linetype = 2) +
+                 breaks = c(1), color = '#525252', size = sze, linetype = 2) +
     
     ylab("Depth (m)") +
     xlab("Dynamic pressure (kPa)") +
@@ -361,8 +364,10 @@ data2 %>% filter(time < 46) %>%
   group_by(flowtype, add = TRUE) %>% 
   group_by(block, add = TRUE) %>%
   group_by(orientation, add = TRUE) %>%
-  filter(pressureNormal_mean == max(pressureNormal_mean)) %>% 
-  distinct() -> tempPressData
+  filter(pressureNormal_mean == max(pressureNormal_mean)) %>%
+  distinct(.keep_all=TRUE) -> tempPressData
+
+   
 
 #
 data2 %>% filter(time < 46) %>%
@@ -372,7 +377,7 @@ data2 %>% filter(time < 46) %>%
   group_by(block, add = TRUE) %>%
   group_by(orientation, add = TRUE) %>%
   filter(depth == max(depth)) %>% 
-  distinct() -> tempHtData
+  distinct(.keep_all=TRUE) -> tempHtData
 
 #
 tempPressData %>% mutate(depth = ifelse(depth > 2.0, 2.0, depth)) %>%
@@ -449,7 +454,7 @@ pressurePlDF <- depthPlDF +
   #scale_y_continuous(labels = c("0.0", "0.5", "1.0", "1.5", ">2.0")) +
   scale_x_continuous(labels = c("0", "5", "10", "15", ">20")) +
   theme_bw()
-
+#ggsave(plot = pressurePlFF, "C:/Users/smead/Dropbox/PhD Stuart - current documents/Modelling/Fragility/images/revision/press/FF_buildings_015.svg", width = 270, height = 220, units = "mm")
 ggsave(plot = pressurePlFF,
        "./FF_buildings_015.svg")
 ggsave(plot = pressurePlHCF,
@@ -703,6 +708,8 @@ lossPlt %>% summarise_each(funs(sum), A0_25:B_15) %>%
             A0_15 = A0_15/8,
             A_15 = A_15/7,
             B_15 = B_15/7) -> lossPlt2
+
+library(tidyr)
 
 lossPlt2 <- tidyr::gather(lossPlt2, key = class, value = number, A0_25:B_15)
 

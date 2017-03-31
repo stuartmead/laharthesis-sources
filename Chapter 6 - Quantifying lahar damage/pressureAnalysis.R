@@ -56,7 +56,7 @@ normalForce <- function(orientation, theta, px, py)
   return(normP)
 }
 
-load(file = "dahliaPressData_z.RData")
+load(file = "C:/Dev/laharthesis-sources/Chapter 6 - Quantifying lahar damage/dahliaPressData_z.RData")
 
 #Filter by orientation
 filter(dahliaData, flowrate != '100') %>%

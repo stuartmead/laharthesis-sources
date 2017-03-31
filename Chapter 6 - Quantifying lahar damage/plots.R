@@ -13,7 +13,7 @@ plot <- ggplot(ultimateMoments, aes(factor(type), designStress*1e-3)) +
              col = 'black', size = 4) +
   scale_size_discrete(range = c(3, 6)) +
   scale_alpha_manual(values = c(1,0.2), guide = FALSE) +
-  xlab("Building Type") +
+  xlab("Building type") +
   ylab("Design compressive stress (kPa)") +
   theme_classic() +
   labs(size = "Brick width (m)") +
